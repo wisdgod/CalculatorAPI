@@ -4,6 +4,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strings"
@@ -94,11 +95,17 @@ func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 	expression := r.Form.Get("expression")
 
 	result, err := Calculate(expression)
-	if err != nil {
+	if result == math.Inf(1) {
+		fmt.Fprintf(w, "计算结果为+Inf")
+		writeToCSV(getRealIP(r), expression, "计算结果为+Inf")
+	} else if result == math.Inf(-1) {
+		fmt.Fprintf(w, "计算结果为-Inf")
+		writeToCSV(getRealIP(r), expression, "计算结果为-Inf")
+	} else if err != nil {
 		fmt.Fprintf(w, "计算失败：%v\n", err)
 		writeToCSV(getRealIP(r), expression, "计算失败")
 	} else {
-		resultStr := fmt.Sprintf("%.10f", result)
+		resultStr := fmt.Sprintf("%.16f", result)
 		fmt.Fprintf(w, "%v", resultStr)
 		writeToCSV(getRealIP(r), expression, fmt.Sprintf("%v", result))
 	}
