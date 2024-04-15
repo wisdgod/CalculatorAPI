@@ -95,10 +95,11 @@ func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 
 	result, err := Calculate(expression)
 	if err != nil {
-		fmt.Fprintf(w, "计算失败：%v", err)
+		fmt.Fprintf(w, "计算失败：%v\n", err)
 		writeToCSV(getRealIP(r), expression, "计算失败")
 	} else {
-		fmt.Fprintf(w, "%v", result)
+		resultStr := fmt.Sprintf("%.10f", result)
+		fmt.Fprintf(w, "%v", resultStr)
 		writeToCSV(getRealIP(r), expression, fmt.Sprintf("%v", result))
 	}
 }
