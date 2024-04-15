@@ -25,6 +25,41 @@ func getRealIP(r *http.Request) string {
 	return cfConnectingIP + "," + realIP + "," + forwardedFor + "," + remoteAddr
 }
 
+func logRequestMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		loc, err := time.LoadLocation("Asia/Shanghai")
+		if err != nil {
+			fmt.Printf("Error loading time location: %v\n", err)
+			loc = time.UTC
+		}
+		startInCST := start.In(loc)
+
+		realIP := getRealIP(r)
+
+		ww := &responseWriterWrapper{ResponseWriter: w, statusCode: http.StatusOK}
+
+		next.ServeHTTP(ww, r)
+
+		duration := time.Since(start)
+		fmt.Printf("%s - - [%s] \"%s %s %s\" %d %d\n",
+			realIP,
+			startInCST.Format("02/Jan/2006 15:04:05"),
+			r.Method,
+			r.RequestURI,
+			r.Proto,
+			ww.statusCode,
+			duration.Milliseconds(),
+		)
+	})
+}
+
+type responseWriterWrapper struct {
+	http.ResponseWriter
+	statusCode int
+}
+
 func main() {
 	file, err := os.Create("history.csv")
 	if err != nil {
@@ -42,7 +77,13 @@ func main() {
 	}
 
 	router := mux.NewRouter()
+	router.Use(logRequestMiddleware)
 	router.HandleFunc("/", CalculateHandler).Methods("GET", "POST")
+	router.HandleFunc("/download", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/csv")
+		w.Header().Set("Content-Disposition", "attachment; filename=history.csv")
+		http.ServeFile(w, r, "history.csv")
+	}).Methods("GET")
 
 	log.Fatal(http.ListenAndServe(":12345", router))
 }
@@ -63,7 +104,15 @@ func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func Calculate(expression string) (interface{}, error) {
-	eval, _ := govaluate.NewEvaluableExpression(expression)
+	eval, err := govaluate.NewEvaluableExpression(expression)
+	if err != nil {
+		usage := "请提供一个合法的表达式。你可以使用的操作符包括 +, -, *, / 等。例如: '5+3' 或 '2*8'。" +
+			"你可以使用curl命令尝试一下:" +
+			"\ncurl -G -d 'expression=5+3' http://ip:12345/" +
+			"\ncurl -X POST -d 'expression=2*8' http://ip:12345/" +
+			"\n你也可以在浏览器中测试，只需要在浏览器的地址栏输入：http://ip:12345/?expression=5+3"
+		return nil, fmt.Errorf("创建可求值表达式失败: %v. %s", err, usage)
+	}
 	done := make(chan interface{}, 1)
 	errs := make(chan error, 1)
 
