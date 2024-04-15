@@ -95,7 +95,7 @@ func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 
 	result, err := Calculate(expression)
 	if err != nil {
-		fmt.Fprintf(w, "计算失败")
+		fmt.Fprintf(w, "计算失败：%v", err)
 		writeToCSV(getRealIP(r), expression, "计算失败")
 	} else {
 		fmt.Fprintf(w, "%v", result)
@@ -104,6 +104,10 @@ func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func Calculate(expression string) (interface{}, error) {
+	if strings.ToLower(expression) == "nil" {
+		return nil, fmt.Errorf("传入了非法表达式: nil")
+	}
+
 	eval, err := govaluate.NewEvaluableExpression(expression)
 	if err != nil {
 		usage := "请提供一个合法的表达式。你可以使用的操作符包括 +, -, *, / 等。例如: '5+3' 或 '2*8'。" +
