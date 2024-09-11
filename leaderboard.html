@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard | 排行榜</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #333333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        table {
+            width: 100%;
+            max-width: 800px;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #dddddd;
+            text-align: left;
+        }
+        th {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Leaderboard | 排行榜</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>IP</th>
+                <th>Total Value</th>
+                <th>Count</th>
+                <th>Min Value</th>
+                <th>Min Expression</th>
+                <th>Max Value</th>
+                <th>Max Expression</th>
+            </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+            <!-- Rows will be inserted here by JavaScript -->
+        </tbody>
+    </table>
+    <script>
+        async function fetchLeaderboard() {
+            const response = await fetch('/leaderboard-data');
+            const data = await response.json();
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '';
+
+            data.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${row.ip}</td>
+                    <td>${row.total_value}</td>
+                    <td>${row.count}</td>
+                    <td>${row.min_value}</td>
+                    <td>${row.min_expression}</td>
+                    <td>${row.max_value}</td>
+                    <td>${row.max_expression}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        fetchLeaderboard();
+    </script>
+</body>
+</html>

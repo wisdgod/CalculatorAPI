@@ -1,21 +1,23 @@
 package main
 
 import (
-	"encoding/csv"
+	"CalculatorAPI/eval"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
-	"math"
+	"math/big"
+	"math/rand"
 	"net/http"
-	"os"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/Knetic/govaluate"
 	"github.com/gorilla/mux"
+	_ "github.com/mattn/go-sqlite3"
 )
 
-var csvFile *os.File
-var writer *csv.Writer
+var db *sql.DB
 
 func getRealIP(r *http.Request) string {
 	cfConnectingIP := r.Header.Get("CF-Connecting-IP")
@@ -62,92 +64,280 @@ type responseWriterWrapper struct {
 }
 
 func main() {
-	file, err := os.Create("history.csv")
+	var err error
+	db, err = initDB()
 	if err != nil {
-		log.Fatal("Cannot create file", err)
+		log.Fatal(err)
 	}
-	defer file.Close()
+	defer db.Close()
 
-	csvFile = file
-	writer = csv.NewWriter(csvFile)
-
-	stat, _ := csvFile.Stat()
-	if stat.Size() == 0 {
-		writer.Write([]string{"IP", "计算表达式", "结果"})
-		writer.Flush()
-	}
+	createTables()
 
 	router := mux.NewRouter()
 	router.Use(logRequestMiddleware)
 	router.HandleFunc("/", CalculateHandler).Methods("GET", "POST")
 	router.HandleFunc("/download", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/csv")
-		w.Header().Set("Content-Disposition", "attachment; filename=history.csv")
 		http.ServeFile(w, r, "history.csv")
 	}).Methods("GET")
+	router.HandleFunc("/calculator", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "index.html")
+	}).Methods("GET")
+	router.HandleFunc("/leaderboard", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "leaderboard.html")
+	}).Methods("GET")
+	router.HandleFunc("/leaderboard-data", LeaderboardDataHandler).Methods("GET")
 
 	log.Fatal(http.ListenAndServe(":12345", router))
+}
+
+func LeaderboardDataHandler(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT ip, total_value, count, min_value, min_expression, max_value, max_expression FROM leaderboard ORDER BY total_value DESC LIMIT 1000")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	type LeaderboardEntry struct {
+		IP            string `json:"ip"`
+		TotalValue    string `json:"total_value"`
+		Count         int    `json:"count"`
+		MinValue      string `json:"min_value"`
+		MinExpression string `json:"min_expression"`
+		MaxValue      string `json:"max_value"`
+		MaxExpression string `json:"max_expression"`
+	}
+
+	var leaderboard []LeaderboardEntry
+
+	for rows.Next() {
+		var entry LeaderboardEntry
+		var totalValue, minValue, maxValue float64
+		err := rows.Scan(&entry.IP, &totalValue, &entry.Count, &minValue, &entry.MinExpression, &maxValue, &entry.MaxExpression)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		entry.TotalValue = new(big.Float).SetFloat64(totalValue).String()
+		entry.MinValue = new(big.Float).SetFloat64(minValue).String()
+		entry.MaxValue = new(big.Float).SetFloat64(maxValue).String()
+		entry.IP = getRandomNonEmptyIP(entry.IP)
+		leaderboard = append(leaderboard, entry)
+	}
+
+	for len(leaderboard) < 1000 {
+		leaderboard = append(leaderboard, LeaderboardEntry{
+			IP:            "unknown",
+			TotalValue:    "0",
+			Count:         0,
+			MinValue:      "0",
+			MinExpression: "null",
+			MaxValue:      "0",
+			MaxExpression: "null",
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(leaderboard)
+}
+
+func getRandomNonEmptyIP(ip string) string {
+	ips := strings.Split(ip, ",")
+	nonEmptyIPs := []string{}
+	for _, ip := range ips {
+		if strings.TrimSpace(ip) != "" {
+			nonEmptyIPs = append(nonEmptyIPs, ip)
+		}
+	}
+
+	if len(nonEmptyIPs) == 0 {
+		return "unknown"
+	}
+
+	return nonEmptyIPs[rand.Intn(len(nonEmptyIPs))]
+}
+
+func createTables() {
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS history (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			ip TEXT,
+			expression TEXT,
+			result TEXT
+		);
+		CREATE TABLE IF NOT EXISTS leaderboard (
+			ip TEXT PRIMARY KEY,
+			total_value REAL,
+			count INTEGER,
+			min_value REAL,
+			min_expression TEXT,
+			max_value REAL,
+			max_expression TEXT
+		);
+	`)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	expression := r.Form.Get("expression")
+	ip := getRealIP(r)
 
-	result, err := Calculate(expression)
-	if result == math.Inf(1) {
-		fmt.Fprintf(w, "计算结果为+Inf")
-		writeToCSV(getRealIP(r), expression, "计算结果为+Inf")
-	} else if result == math.Inf(-1) {
-		fmt.Fprintf(w, "计算结果为-Inf")
-		writeToCSV(getRealIP(r), expression, "计算结果为-Inf")
-	} else if err != nil {
-		fmt.Fprintf(w, "计算失败：%v\n", err)
-		writeToCSV(getRealIP(r), expression, "计算失败")
-	} else {
-		resultStr := fmt.Sprintf("%.16f", result)
-		fmt.Fprintf(w, "%v", resultStr)
-		writeToCSV(getRealIP(r), expression, fmt.Sprintf("%v", result))
-	}
-}
+	result, err := Calculate(expression, ip)
+	response := map[string]interface{}{}
 
-func Calculate(expression string) (interface{}, error) {
-	if strings.ToLower(expression) == "nil" {
-		return nil, fmt.Errorf("传入了非法表达式: nil")
-	}
-
-	eval, err := govaluate.NewEvaluableExpression(expression)
 	if err != nil {
-		usage := "请提供一个合法的表达式。你可以使用的操作符包括 +, -, *, / 等。例如: '5+3' 或 '2*8'。" +
-			"你可以使用curl命令尝试一下:" +
-			"\ncurl -G -d 'expression=5+3' http://ip:12345/" +
-			"\ncurl -X POST -d 'expression=2*8' http://ip:12345/" +
-			"\n你也可以在浏览器中测试，只需要在浏览器的地址栏输入：http://ip:12345/?expression=5+3"
-		return nil, fmt.Errorf("创建可求值表达式失败: %v. %s", err, usage)
-	}
-	done := make(chan interface{}, 1)
-	errs := make(chan error, 1)
+		response["error"] = fmt.Sprintf("计算失败：%v", err)
+		writeToDB(ip, expression, "计算失败")
+	} else {
+		response["value"] = result
+		writeToDB(ip, expression, result.(string))
 
-	go func() {
-		result, err := eval.Evaluate(nil)
-		if err != nil {
-			errs <- err
+		if strings.HasPrefix(expression, "rand(") {
+			response["showLeaderboard"] = true
 		} else {
-			done <- result
+			response["showLeaderboard"] = false
 		}
-	}()
-
-	select {
-	case res := <-done:
-		return res, nil
-	case <-errs:
-		return nil, fmt.Errorf("计算失败")
-	case <-time.After(1 * time.Second):
-		return nil, fmt.Errorf("计算失败")
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
-func writeToCSV(ip, expression, result string) {
-	writer.Write([]string{ip, expression, result})
-	writer.Flush()
+func Calculate(expression string, ip string) (interface{}, error) {
+	result, err := eval.Evaluate(expression)
+	if err != nil {
+		return nil, fmt.Errorf("计算失败: %v", err)
+	}
+
+	// 处理 rand() 函数的特殊情况
+	if strings.HasPrefix(expression, "rand(") {
+		// 这里需要修改，因为 Evaluate 现在返回的是字符串
+		// 我们需要将结果转换回 float64
+		floatResult, err := strconv.ParseFloat(result, 64)
+		if err != nil {
+			return nil, fmt.Errorf("解析随机数结果失败: %v", err)
+		}
+		updateLeaderboard(ip, big.NewFloat(floatResult), expression)
+	}
+
+	return result, nil
+}
+
+func writeToDB(ip, expression, result string) {
+	const maxRetries = 5
+	const retryDelay = 100 * time.Millisecond
+
+	for i := 0; i < maxRetries; i++ {
+		err := writeToDBOnce(ip, expression, result)
+		if err != nil {
+			if isLockedError(err) {
+				time.Sleep(retryDelay)
+				continue
+			}
+			log.Println("Error writing to DB:", err)
+			return
+		}
+		return
+	}
+
+	log.Println("Max retries reached for writing to DB")
+}
+
+func writeToDBOnce(ip, expression, result string) error {
+	_, err := db.Exec("INSERT INTO history (ip, expression, result) VALUES (?, ?, ?)", ip, expression, result)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func updateLeaderboard(ip string, value *big.Float, expression string) {
+	const maxRetries = 5
+	const retryDelay = 100 * time.Millisecond
+
+	for i := 0; i < maxRetries; i++ {
+		err := updateLeaderboardOnce(ip, value, expression)
+		if err != nil {
+			if isLockedError(err) {
+				time.Sleep(retryDelay)
+				continue
+			}
+			log.Println("Error updating leaderboard:", err)
+			return
+		}
+		return
+	}
+
+	log.Println("Max retries reached for updating leaderboard")
+}
+
+func updateLeaderboardOnce(ip string, value *big.Float, expression string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %v", err)
+	}
+	defer tx.Rollback()
+
+	var totalValue float64
+	var count int
+	var minValue, maxValue float64
+	var minExpression, maxExpression string
+
+	err = tx.QueryRow("SELECT total_value, count, min_value, min_expression, max_value, max_expression FROM leaderboard WHERE ip = ?", ip).Scan(&totalValue, &count, &minValue, &minExpression, &maxValue, &maxExpression)
+
+	valueFloat, _ := value.Float64()
+
+	if err == sql.ErrNoRows {
+		_, err = tx.Exec("INSERT INTO leaderboard (ip, total_value, count, min_value, min_expression, max_value, max_expression) VALUES (?, ?, 1, ?, ?, ?, ?)", ip, valueFloat, valueFloat, expression, valueFloat, expression)
+	} else if err == nil {
+		totalValue += valueFloat
+		count++
+		if valueFloat < minValue {
+			minValue = valueFloat
+			minExpression = expression
+		}
+		if valueFloat > maxValue {
+			maxValue = valueFloat
+			maxExpression = expression
+		}
+		_, err = tx.Exec("UPDATE leaderboard SET total_value = ?, count = ?, min_value = ?, min_expression = ?, max_value = ?, max_expression = ? WHERE ip = ?", totalValue, count, minValue, minExpression, maxValue, maxExpression, ip)
+	}
+
+	if err != nil {
+		return fmt.Errorf("error updating leaderboard: %v", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
+	}
+
+	return nil
+}
+
+func isLockedError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "database is locked")
+}
+
+func initDB() (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", "./calculator.db")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = db.Exec("PRAGMA journal_mode = WAL;")
+	if err != nil {
+		return nil, err
+	}
+
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(0)
+
+	return db, nil
 }

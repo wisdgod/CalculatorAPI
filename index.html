@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator | 计算器</title>
+    <style>
+        :root {
+            --background-color: #f0f2f5;
+            --text-color: #333333;
+            --container-background-color: #ffffff;
+            --border-color: #dddddd;
+            --display-background-color: #f9f9f9;
+            --button-background-color: #e0e0e0;
+            --button-text-color: #333333;
+            --button-hover-background-color: #d0d0d0;
+            --button-active-background-color: #c0c0c0;
+            --clear-button-background-color: #ffcccc;
+            --clear-button-hover-background-color: #ffb3b3;
+            --equal-button-background-color: #ccffcc;
+            --equal-button-hover-background-color: #b3ffb3;
+            --placeholder-color: #999999;
+            --error-background-color: #ffe6e6;
+            --error-text-color: #cc0000;
+        }
+
+        [data-theme="dark"] {
+            --background-color: #121212;
+            --text-color: #ffffff;
+            --container-background-color: #1e1e1e;
+            --border-color: #333333;
+            --display-background-color: #2e2e2e;
+            --button-background-color: #3a3a3a;
+            --button-text-color: #ffffff;
+            --button-hover-background-color: #4a4a4a;
+            --button-active-background-color: #5a5a5a;
+            --clear-button-background-color: #ff6666;
+            --clear-button-hover-background-color: #ff4d4d;
+            --equal-button-background-color: #66ff66;
+            --equal-button-hover-background-color: #4dff4d;
+            --placeholder-color: #aaaaaa;
+            --error-background-color: #4d0000;
+            --error-text-color: #ff6666;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .container {
+            background: var(--container-background-color);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: background-color 0.3s;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .display {
+            width: 100%;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 24px;
+            margin-bottom: 20px;
+            background-color: var(--display-background-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-sizing: border-box;
+            color: var(--text-color);
+        }
+        .display::placeholder {
+            color: var(--placeholder-color);
+        }
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 20px;
+            background-color: var(--button-background-color);
+            border: none;
+            border-radius: 8px;
+            color: var(--button-text-color);
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        button:hover {
+            background-color: var(--button-hover-background-color);
+        }
+        button:active {
+            background-color: var(--button-active-background-color);
+        }
+        button.clear {
+            background-color: var(--clear-button-background-color);
+        }
+        button.clear:hover {
+            background-color: var(--clear-button-hover-background-color);
+        }
+        button.equal {
+            background-color: var(--equal-button-background-color);
+            grid-column: span 4;
+        }
+        button.equal:hover {
+            background-color: var(--equal-button-hover-background-color);
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+            display: none;
+        }
+        .error-message {
+            background-color: var(--error-background-color);
+            color: var(--error-text-color);
+            padding: 10px;
+            border-radius: 8px;
+            max-height: 100px;
+            overflow-y: auto;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 20px;
+            display: none;
+        }
+        .theme-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+    </style>
+    <script>
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            applyTheme(savedTheme);
+            document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+        });
+
+        function appendValue(value) {
+            const display = document.getElementById("expression");
+            display.value += value;
+        }
+
+        function clearDisplay() {
+            document.getElementById("expression").value = '';
+            document.getElementById("result").innerText = '';
+            document.getElementById("error").innerText = '';
+            document.getElementById("result").style.display = 'none';
+            document.getElementById("error").style.display = 'none';
+            const leaderboardBtn = document.getElementById("leaderboard-btn");
+            if (leaderboardBtn) {
+                leaderboardBtn.remove();
+            }
+        }
+
+        function wrapExpressionWithFunction(func) {
+            const display = document.getElementById("expression");
+            const currentValue = display.value || "0"; // Default to "0" if the input is empty
+            display.value = `${func}(${currentValue})`;
+        }
+
+        // function validateExpression(expression) {
+        //     try {
+        //         // Check for balanced parentheses
+        //         let stack = [];
+        //         for (let char of expression) {
+        //             if (char === '(') {
+        //                 stack.push(char);
+        //             } else if (char === ')') {
+        //                 if (stack.length === 0) {
+        //                     return false;
+        //                 }
+        //                 stack.pop();
+        //             }
+        //         }
+        //         return stack.length === 0;
+        //     } catch (e) {
+        //         return false;
+        //     }
+        // }
+
+        async function calculate() {
+            const expression = document.getElementById("expression").value;
+
+            // if (!validateExpression(expression)) {
+            //     document.getElementById("error").innerText = "Invalid expression. Please check your input.";
+            //     document.getElementById("error").style.display = 'block';
+            //     document.getElementById("result").style.display = 'none';
+            //     return;
+            // }
+
+            const response = await fetch("/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: `expression=${encodeURIComponent(expression)}`
+            });
+            const result = await response.json();
+            if (response.ok) {
+                document.getElementById("result").innerText = `Result | 结果: ${result.value}`;
+                document.getElementById("result").style.display = 'block';
+                document.getElementById("error").style.display = 'none';
+                if (result.showLeaderboard) {
+                    createLeaderboardButton();
+                }
+            } else {
+                document.getElementById("error").innerText = result.error;
+                document.getElementById("error").style.display = 'block';
+                document.getElementById("result").style.display = 'none';
+                const leaderboardBtn = document.getElementById("leaderboard-btn");
+                if (leaderboardBtn) {
+                    leaderboardBtn.remove();
+                }
+            }
+        }
+
+        function createLeaderboardButton() {
+            const container = document.querySelector('.container');
+            let leaderboardBtn = document.getElementById("leaderboard-btn");
+            if (!leaderboardBtn) {
+                leaderboardBtn = document.createElement("button");
+                leaderboardBtn.id = "leaderboard-btn";
+                leaderboardBtn.innerText = "View Leaderboard | 查看排行榜";
+                leaderboardBtn.onclick = () => {
+                    window.location.href = '/leaderboard';
+                };
+                leaderboardBtn.style.marginTop = "20px";
+                leaderboardBtn.style.padding = "10px 20px";
+                leaderboardBtn.style.backgroundColor = "var(--button-background-color)";
+                leaderboardBtn.style.border = "none";
+                leaderboardBtn.style.borderRadius = "8px";
+                leaderboardBtn.style.color = "var(--button-text-color)";
+                leaderboardBtn.style.fontSize = "18px";
+                leaderboardBtn.style.cursor = "pointer";
+                leaderboardBtn.style.transition = "background-color 0.3s, color 0.3s";
+                leaderboardBtn.onmouseover = () => {
+                    leaderboardBtn.style.backgroundColor = "var(--button-hover-background-color)";
+                };
+                leaderboardBtn.onmouseout = () => {
+                    leaderboardBtn.style.backgroundColor = "var(--button-background-color)";
+                };
+                leaderboardBtn.onmousedown = () => {
+                    leaderboardBtn.style.backgroundColor = "var(--button-active-background-color)";
+                };
+                container.appendChild(leaderboardBtn);
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Calculator | 计算器</h1>
+        <input type="text" id="expression" class="display" placeholder="Enter expression | 输入表达式">
+        <div class="buttons">
+            <button onclick="appendValue('7')">7</button>
+            <button onclick="appendValue('8')">8</button>
+            <button onclick="appendValue('9')">9</button>
+            <button onclick="appendValue('/')">/</button>
+            <button onclick="appendValue('4')">4</button>
+            <button onclick="appendValue('5')">5</button>
+            <button onclick="appendValue('6')">6</button>
+            <button onclick="appendValue('*')">*</button>
+            <button onclick="appendValue('1')">1</button>
+            <button onclick="appendValue('2')">2</button>
+            <button onclick="appendValue('3')">3</button>
+            <button onclick="appendValue('-')">-</button>
+            <button onclick="appendValue('0')">0</button>
+            <button onclick="appendValue('.')">.</button>
+            <button class="clear" onclick="clearDisplay()">C</button>
+            <button onclick="appendValue('+')">+</button>
+            <button class="equal" onclick="calculate()">=</button>
+            <!-- Advanced functions -->
+            <button onclick="wrapExpressionWithFunction('sqrt')">sqrt</button>
+            <button onclick="wrapExpressionWithFunction('pow')">pow</button>
+            <button onclick="wrapExpressionWithFunction('rand')">rand</button>
+            <button onclick="wrapExpressionWithFunction('sin')">sin</button>
+            <button onclick="wrapExpressionWithFunction('cos')">cos</button>
+            <button onclick="wrapExpressionWithFunction('tan')">tan</button>
+            <button onclick="wrapExpressionWithFunction('log')">log</button>
+            <button onclick="wrapExpressionWithFunction('exp')">exp</button>
+        </div>
+        <p id="result"></p>
+        <div id="error" class="error-message"></div>
+    </div>
+    <button id="theme-toggle" class="theme-toggle">Toggle Theme | 切换主题</button>
+</body>
+</html>
