@@ -5,116 +5,131 @@ on:
     tags:
       - 'v*'
 
+env:
+  PRIVATE_REPO: wisdgod/CalcParse
+
 jobs:
-  build:
-    name: Build on ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            name: debian
-            artifact_name: capi
-          - os: windows-latest
-            name: windows
-            artifact_name: capi.exe
-          - os: ubuntu-latest
-            name: freebsd
-            artifact_name: capi
-
-    env:
-      PRIVATE_REPO: wisdgod/CalcParse
-
+  build-debian:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.1.7
-
-      - name: Install dependencies (Debian)
-        if: matrix.name == 'debian'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.1'
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libgmp-dev libmpfr-dev
-
-      - name: Install MSYS2 and dependencies (Windows)
-        if: matrix.name == 'windows'
-        uses: msys2/setup-msys2@v2.24.1
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-gmp
-            mingw-w64-x86_64-mpfr
-
-      - name: Download and rename latest libcalc_parse from private repository
+      - name: Download libcalc_parse
         env:
           GITHUB_TOKEN: ${{ secrets.LIB_PRIVATE_REPO_ACCESS_TOKEN }}
         run: |
-          if [[ "${{ matrix.name }}" == "debian" ]]; then
-            LIBFILE="libcalc_parse-debian.so"
-            TARGETFILE="libcalc_parse.so"
-          elif [[ "${{ matrix.name }}" == "windows" ]]; then
-            LIBFILE="libcalc_parse-windows.dll"
-            TARGETFILE="libcalc_parse.dll"
-          elif [[ "${{ matrix.name }}" == "freebsd" ]]; then
-            LIBFILE="libcalc_parse-freebsd.so"
-            TARGETFILE="libcalc_parse.so"
-          fi
+          LIBFILE="libcalc_parse-debian.so"
+          TARGETFILE="libcalc_parse.so"
           LATEST_RELEASE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
           DOWNLOAD_URL=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .browser_download_url")
-
           if [ -z "$DOWNLOAD_URL" ]; then
             echo "未找到$LIBFILE的下载URL"
             exit 1
           fi
-
           curl -L -o calc/$TARGETFILE -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
-
-      - name: Build (Debian)
-        if: matrix.name == 'debian'
+      - name: Build
         env:
           GCC_ENABLE: 1
         run: |
-          go build -o capi .
+          go build -v -o capi .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.4.0
+        with:
+          name: capi-debian
+          path: capi
 
-      - name: Build (Windows)
-        if: matrix.name == 'windows'
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+      - name: Set up Go
+        uses: actions/setup-go@v5.0.2
+        with:
+          go-version: '1.23.1'
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2.24.1
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-gmp mingw-w64-x86_64-mpfr
+      - name: Download libcalc_parse
+        env:
+          GITHUB_TOKEN: ${{ secrets.LIB_PRIVATE_REPO_ACCESS_TOKEN }}
+        shell: bash
+        run: |
+          LIBFILE="libcalc_parse-windows.dll"
+          TARGETFILE="libcalc_parse.dll"
+          LATEST_RELEASE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
+          DOWNLOAD_URL=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .browser_download_url")
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "未找到$LIBFILE的下载URL"
+            exit 1
+          fi
+          curl -L -o calc/$TARGETFILE -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
+      - name: Build
         shell: msys2 {0}
         env:
           GCC_ENABLE: 1
         run: |
-          go build -o capi.exe .
+          go build -v -o capi.exe .
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4.4.0
+        with:
+          name: capi-windows
+          path: capi.exe
 
+  build-freebsd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.1.7
+      - name: Download libcalc_parse
+        env:
+          GITHUB_TOKEN: ${{ secrets.LIB_PRIVATE_REPO_ACCESS_TOKEN }}
+        run: |
+          LIBFILE="libcalc_parse-freebsd.so"
+          TARGETFILE="libcalc_parse.so"
+          LATEST_RELEASE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
+          DOWNLOAD_URL=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .browser_download_url")
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "未找到$LIBFILE的下载URL"
+            exit 1
+          fi
+          curl -L -o calc/$TARGETFILE -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
       - name: Build on FreeBSD
-        if: matrix.name == 'freebsd'
         uses: vmactions/freebsd-vm@v1.1.1
         with:
           usesh: true
           prepare: |
             pkg update
-            pkg install -y gmake gmp mpfr lang/gcc
+            pkg install -y gmake gmp mpfr lang/gcc wget
+            wget https://dl.google.com/go/go1.23.1.freebsd-amd64.tar.gz && tar -C /usr/local -xzf go1.23.1.freebsd-amd64.tar.gz && rm go1.23.1.freebsd-amd64.tar.gz
+            ln -s /usr/local/go/bin/go /usr/local/bin/go
           run: |
+            export PATH=$PATH:/usr/local/go/bin
             GCC_VERSION=$(ls /usr/local/bin/gcc* | grep -oE '[0-9]+' | sort -rn | head -n1)
             echo "Using GCC version: $GCC_VERSION"
             /usr/local/bin/gcc$GCC_VERSION --version
-            go build -o capi .
-
+            go version
+            GCC_ENABLE=1 go build -v -o capi .
       - name: Upload artifact
         uses: actions/upload-artifact@v4.4.0
         with:
-          name: capi-${{ matrix.name }}
-          path: ${{ matrix.artifact_name }}
+          name: capi-freebsd
+          path: capi
 
-  release:
-    name: Create Release
-    needs: build
+  create-release:
+    needs: [build-debian, build-windows, build-freebsd]
     runs-on: ubuntu-latest
     steps:
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4.1.8
-
-      - name: Display structure of downloaded files
-        run: ls -R
-
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1.1.4
@@ -125,33 +140,30 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
-
       - name: Upload Release Asset (Debian)
         uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./capi-debian
+          asset_path: ./capi-debian/capi
           asset_name: capi-debian
           asset_content_type: application/octet-stream
-
       - name: Upload Release Asset (Windows)
         uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./capi-windows.exe
+          asset_path: ./capi-windows/capi.exe
           asset_name: capi-windows.exe
           asset_content_type: application/octet-stream
-
       - name: Upload Release Asset (FreeBSD)
         uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./capi-freebsd
+          asset_path: ./capi-freebsd/capi
           asset_name: capi-freebsd
           asset_content_type: application/octet-stream
