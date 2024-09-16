@@ -1,7 +1,7 @@
 package main
 
 import (
-	"CalculatorAPI/eval"
+	"CalculatorAPI/calc"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -76,9 +75,6 @@ func main() {
 	router := mux.NewRouter()
 	router.Use(logRequestMiddleware)
 	router.HandleFunc("/", CalculateHandler).Methods("GET", "POST")
-	router.HandleFunc("/download", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "history.csv")
-	}).Methods("GET")
 	router.HandleFunc("/calculator", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "index.html")
 	}).Methods("GET")
@@ -209,23 +205,18 @@ func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func Calculate(expression string, ip string) (interface{}, error) {
-	result, err := eval.Evaluate(expression)
+	result, err := calc.Calculate(expression)
 	if err != nil {
 		return nil, fmt.Errorf("计算失败: %v", err)
 	}
 
 	// 处理 rand() 函数的特殊情况
 	if strings.HasPrefix(expression, "rand(") {
-		// 这里需要修改，因为 Evaluate 现在返回的是字符串
-		// 我们需要将结果转换回 float64
-		floatResult, err := strconv.ParseFloat(result, 64)
-		if err != nil {
-			return nil, fmt.Errorf("解析随机数结果失败: %v", err)
-		}
-		updateLeaderboard(ip, big.NewFloat(floatResult), expression)
+		// result 已经是 *big.Float 类型，不需要转换
+		updateLeaderboard(ip, result, expression)
 	}
 
-	return result, nil
+	return result.Text('f', 10), nil // 返回字符串形式的结果，保留10位小数
 }
 
 func writeToDB(ip, expression, result string) {

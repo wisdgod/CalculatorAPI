@@ -7,38 +7,41 @@ import (
 	"go/token"
 	"go/types"
 	"math"
-	"math/cmplx"
-	"math/rand"
+	"math/big"
+	"math/rand/v2"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
-// Value 表示计算器中的值，可以是实数、复数或字符串
+// Value 表示计算器中的值，支持高精度模式
 type Value struct {
-	Real  float64
-	Imag  float64
+	Real  *big.Float
+	Imag  *big.Float
 	Str   string
 	IsStr bool
+	IsInt bool
 }
 
-// Eval 结构体用于遍历和求值抽象语法树（AST）。
+// Eval 结构体用于遍历和求值抽象语法树（AST）
 type Eval struct {
-	info      types.Info
-	vars      map[string]Value
-	funcs     map[string]func([]Value) (Value, error)
-	result    Value
-	hasReturn bool
+	info          types.Info
+	vars          map[string]Value
+	funcs         map[string]func([]Value, bool) (Value, error)
+	result        Value
+	hasReturn     bool
+	highPrecision bool
 }
 
 // NewEval 创建一个新的 Eval 实例
-func NewEval() *Eval {
+func NewEval(highPrecision bool) *Eval {
 	e := &Eval{
 		info: types.Info{
 			Types: make(map[ast.Expr]types.TypeAndValue),
 		},
-		vars:  make(map[string]Value),
-		funcs: make(map[string]func([]Value) (Value, error)),
+		vars:          make(map[string]Value),
+		funcs:         make(map[string]func([]Value, bool) (Value, error)),
+		highPrecision: highPrecision,
 	}
 	e.registerBuiltinFuncs()
 	return e
@@ -46,71 +49,81 @@ func NewEval() *Eval {
 
 // registerBuiltinFuncs 注册内置函数
 func (e *Eval) registerBuiltinFuncs() {
-	e.funcs = map[string]func([]Value) (Value, error){
-		"sqrt": func(args []Value) (Value, error) {
+	e.funcs = map[string]func([]Value, bool) (Value, error){
+		"sqrt": func(args []Value, highPrecision bool) (Value, error) {
 			if len(args) != 1 {
 				return Value{}, fmt.Errorf("sqrt 函数需要一个参数")
 			}
-			return Value{Real: math.Sqrt(args[0].Real)}, nil
+			if highPrecision {
+				result := new(big.Float).Sqrt(args[0].Real)
+				return Value{Real: result}, nil
+			}
+			return Value{Real: new(big.Float).SetFloat64(math.Sqrt(floatValue(args[0].Real)))}, nil
 		},
-		"pow": func(args []Value) (Value, error) {
+		"pow": func(args []Value, highPrecision bool) (Value, error) {
 			if len(args) != 2 {
 				return Value{}, fmt.Errorf("pow 函数需要两个参数")
 			}
-			return Value{Real: math.Pow(args[0].Real, args[1].Real)}, nil
+			result := math.Pow(floatValue(args[0].Real), floatValue(args[1].Real))
+			return Value{Real: new(big.Float).SetFloat64(result)}, nil
 		},
-		"rand": func(args []Value) (Value, error) {
-			return Value{Real: rand.Float64()}, nil
+		"rand": func(args []Value, highPrecision bool) (Value, error) {
+			return Value{Real: new(big.Float).SetFloat64(rand.Float64())}, nil
 		},
-		"sin": func(args []Value) (Value, error) {
+		"sin": func(args []Value, highPrecision bool) (Value, error) {
 			if len(args) != 1 {
 				return Value{}, fmt.Errorf("sin 函数需要一个参数")
 			}
-			return Value{Real: math.Sin(args[0].Real)}, nil
+			result := math.Sin(floatValue(args[0].Real))
+			return Value{Real: new(big.Float).SetFloat64(result)}, nil
 		},
-		"cos": func(args []Value) (Value, error) {
+		"cos": func(args []Value, highPrecision bool) (Value, error) {
 			if len(args) != 1 {
 				return Value{}, fmt.Errorf("cos 函数需要一个参数")
 			}
-			return Value{Real: math.Cos(args[0].Real)}, nil
+			result := math.Cos(floatValue(args[0].Real))
+			return Value{Real: new(big.Float).SetFloat64(result)}, nil
 		},
-		"tan": func(args []Value) (Value, error) {
+		"tan": func(args []Value, highPrecision bool) (Value, error) {
 			if len(args) != 1 {
 				return Value{}, fmt.Errorf("tan 函数需要一个参数")
 			}
-			return Value{Real: math.Tan(args[0].Real)}, nil
+			result := math.Tan(floatValue(args[0].Real))
+			return Value{Real: new(big.Float).SetFloat64(result)}, nil
 		},
-		"log": func(args []Value) (Value, error) {
+		"log": func(args []Value, highPrecision bool) (Value, error) {
 			if len(args) != 1 {
 				return Value{}, fmt.Errorf("log 函数需要一个参数")
 			}
-			return Value{Real: math.Log(args[0].Real)}, nil
+			result := math.Log(floatValue(args[0].Real))
+			return Value{Real: new(big.Float).SetFloat64(result)}, nil
 		},
-		"exp": func(args []Value) (Value, error) {
+		"exp": func(args []Value, highPrecision bool) (Value, error) {
 			if len(args) != 1 {
 				return Value{}, fmt.Errorf("exp 函数需要一个参数")
 			}
-			return Value{Real: math.Exp(args[0].Real)}, nil
+			result := math.Exp(floatValue(args[0].Real))
+			return Value{Real: new(big.Float).SetFloat64(result)}, nil
 		},
-		"complex": func(args []Value) (Value, error) {
+		"complex": func(args []Value, highPrecision bool) (Value, error) {
 			if len(args) != 2 {
 				return Value{}, fmt.Errorf("complex 函数需要两个参数")
 			}
 			return Value{Real: args[0].Real, Imag: args[1].Real}, nil
 		},
-		"re": func(args []Value) (Value, error) {
+		"re": func(args []Value, highPrecision bool) (Value, error) {
 			if len(args) != 1 {
 				return Value{}, fmt.Errorf("re 函数需要一个参数")
 			}
 			return Value{Real: args[0].Real}, nil
 		},
-		"im": func(args []Value) (Value, error) {
+		"im": func(args []Value, highPrecision bool) (Value, error) {
 			if len(args) != 1 {
 				return Value{}, fmt.Errorf("im 函数需要一个参数")
 			}
 			return Value{Real: args[0].Imag}, nil
 		},
-		"string": func(args []Value) (Value, error) {
+		"string": func(args []Value, highPrecision bool) (Value, error) {
 			if len(args) != 1 {
 				return Value{}, fmt.Errorf("string 函数需要一个参数")
 			}
@@ -122,7 +135,7 @@ func (e *Eval) registerBuiltinFuncs() {
 			for _, r := range args[0].Str {
 				result = result*31 + int64(r)
 			}
-			return Value{Real: float64(result)}, nil
+			return Value{Real: new(big.Float).SetInt64(result)}, nil
 		},
 	}
 }
@@ -167,14 +180,24 @@ func (e *Eval) Visit(node ast.Node) ast.Visitor {
 	return e
 }
 
-// evalExpr 评估一个表达式并返回结果。
+// floatValue 辅助函数，用于从 big.Float 获取 float64 值
+func floatValue(f *big.Float) float64 {
+	v, _ := f.Float64()
+	return v
+}
+
+// evalExpr 评估一个表达式并返回结果
 func (e *Eval) evalExpr(expr ast.Expr) (Value, error) {
 	switch n := expr.(type) {
 	case *ast.BasicLit:
 		switch n.Kind {
 		case token.INT, token.FLOAT:
+			if e.highPrecision {
+				val, _, err := new(big.Float).Parse(n.Value, 10)
+				return Value{Real: val}, err
+			}
 			val, err := strconv.ParseFloat(n.Value, 64)
-			return Value{Real: val}, err
+			return Value{Real: new(big.Float).SetFloat64(val)}, err
 		case token.STRING:
 			return Value{Str: n.Value[1 : len(n.Value)-1], IsStr: true}, nil
 		default:
@@ -196,7 +219,7 @@ func (e *Eval) evalExpr(expr ast.Expr) (Value, error) {
 	}
 }
 
-// evalBinaryExpr 处理二元操作。
+// evalBinaryExpr 处理二元操作
 func (e *Eval) evalBinaryExpr(n *ast.BinaryExpr) (Value, error) {
 	left, err := e.evalExpr(n.X)
 	if err != nil {
@@ -211,37 +234,43 @@ func (e *Eval) evalBinaryExpr(n *ast.BinaryExpr) (Value, error) {
 		return e.evalStringBinaryExpr(left, right, n.Op)
 	}
 
-	// 将 Value 转换为 complex128
-	leftComplex := complex(left.Real, left.Imag)
-	rightComplex := complex(right.Real, right.Imag)
-
-	var result complex128
-
+	result := new(big.Float).SetPrec(256) // 设置高精度
 	switch n.Op {
 	case token.ADD:
-		result = leftComplex + rightComplex
+		result.Add(left.Real, right.Real)
 	case token.SUB:
-		result = leftComplex - rightComplex
+		result.Sub(left.Real, right.Real)
 	case token.MUL:
-		result = leftComplex * rightComplex
+		result.Mul(left.Real, right.Real)
 	case token.QUO:
-		if rightComplex == 0 {
+		if right.Real.Sign() == 0 {
 			return Value{}, fmt.Errorf("除数不能为零")
 		}
-		result = leftComplex / rightComplex
+		result.Quo(left.Real, right.Real)
 	case token.REM:
-		// 仅对实数部分进行取模操作
-		if right.Imag != 0 {
-			return Value{}, fmt.Errorf("不能对复数进行取模操作")
+		if e.highPrecision {
+			// 高精度模式下的取模运算
+			quotient := new(big.Float).Quo(left.Real, right.Real)
+			intQuotient := new(big.Float).SetFloat64(math.Floor(floatValue(quotient)))
+			temp := new(big.Float).Mul(intQuotient, right.Real)
+			result.Sub(left.Real, temp)
+		} else {
+			leftFloat, _ := left.Real.Float64()
+			rightFloat, _ := right.Real.Float64()
+			result.SetFloat64(math.Mod(leftFloat, rightFloat))
 		}
-		result = complex(math.Mod(left.Real, right.Real), 0)
 	case token.XOR: // 使用 XOR 代替幂运算
-		result = cmplx.Pow(leftComplex, rightComplex)
+		leftFloat, _ := left.Real.Float64()
+		rightFloat, _ := right.Real.Float64()
+		result.SetFloat64(math.Pow(leftFloat, rightFloat))
 	default:
 		return Value{}, fmt.Errorf("不支持的操作符: %v", n.Op)
 	}
 
-	return Value{Real: real(result), Imag: imag(result)}, nil
+	// 设置精度和舍入模式，而不是使用不存在的 Round 方法
+	result.SetPrec(53).SetMode(big.ToNearestEven)
+
+	return Value{Real: result}, nil
 }
 
 // evalStringBinaryExpr 处理字符串的二元操作。
@@ -255,7 +284,7 @@ func (e *Eval) evalStringBinaryExpr(left, right Value, op token.Token) (Value, e
 	}
 }
 
-// evalFuncCall 处理函数调用。
+// evalFuncCall 处理函数调用
 func (e *Eval) evalFuncCall(call *ast.CallExpr) (Value, error) {
 	funcName, ok := call.Fun.(*ast.Ident)
 	if !ok {
@@ -276,7 +305,7 @@ func (e *Eval) evalFuncCall(call *ast.CallExpr) (Value, error) {
 		args[i] = val
 	}
 
-	return fn(args)
+	return fn(args, e.highPrecision)
 }
 
 // evalAssign 处理赋值语句。
@@ -375,15 +404,15 @@ func preprocessString(expr string) string {
 	})
 }
 
-// Evaluate 函数接收表达式字符串并返回求值结果。
-func Evaluate(expr string) (string, error) {
+// Evaluate 函数接收表达式字符串和高精度模式标志，并返回求值结果
+func Evaluate(expr string, highPrecision bool) (string, error) {
 	// 预处理输入，处理无引号字符串
 	expr = preprocessString(expr)
 
 	statements := strings.Split(expr, ";")
 
 	fs := token.NewFileSet()
-	evaluator := NewEval()
+	evaluator := NewEval(highPrecision)
 
 	// 创建内置函数的虚拟声明
 	var builtinDecls []string
@@ -437,7 +466,7 @@ func Evaluate(expr string) (string, error) {
 
 		// 如果是返回语句，直接返回结果
 		if evaluator.hasReturn {
-			return formatResult(evaluator.result), nil
+			return formatResult(evaluator.result, highPrecision), nil
 		}
 
 		// 否则，更新最后的结果
@@ -445,16 +474,22 @@ func Evaluate(expr string) (string, error) {
 	}
 
 	// 返回最后一个表达式的结果
-	return formatResult(lastResult), nil
+	return formatResult(lastResult, highPrecision), nil
 }
 
 // formatResult 格式化结果为字符串
-func formatResult(result Value) string {
+func formatResult(result Value, highPrecision bool) string {
 	if result.IsStr {
 		return parseString(result.Str)
-	} else if result.Imag == 0 {
-		return fmt.Sprintf("%v", result.Real)
 	} else {
-		return fmt.Sprintf("%v + %vi", result.Real, result.Imag)
+		if highPrecision {
+			// 使用更高的精度，并设置适当的舍入模式
+			rounded := new(big.Float).SetPrec(256).Set(result.Real)
+			rounded.SetMode(big.ToNearestEven)
+			return rounded.Text('f', 50) // 使用50位精度
+		} else {
+			f, _ := result.Real.Float64()
+			return fmt.Sprintf("%v", f)
+		}
 	}
 }
