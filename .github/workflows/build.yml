@@ -22,21 +22,32 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libgmp-dev libmpfr-dev
-      - name: Download libcalc_parse
+      - name: Download and verify libcalc_parse
         env:
           GITHUB_TOKEN: ${{ secrets.LIB_PRIVATE_REPO_ACCESS_TOKEN }}
         run: |
           LIBFILE="libcalc_parse-debian.so"
-          TARGETFILE="libcalc_parse.so"
-          LATEST_RELEASE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
+          TARGETFILE="calc/libcalc_parse.so"
+          LATEST_RELEASE=$(curl -sSL -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
           DOWNLOAD_URL=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .browser_download_url")
           if [ -z "$DOWNLOAD_URL" ]; then
-            echo "未找到$LIBFILE的下载URL"
+            echo "Error: 未找到 $LIBFILE 的下载 URL"
             exit 1
           fi
-          curl -L -o calc/$TARGETFILE -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
-          file calc/$TARGETFILE
-          ldd calc/$TARGETFILE || true
+          echo "Downloading from: $DOWNLOAD_URL"
+          curl -sSL -o "$TARGETFILE" -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
+          if [ ! -f "$TARGETFILE" ]; then
+            echo "Error: 下载失败，文件不存在"
+            exit 1
+          fi
+          file_type=$(file -b "$TARGETFILE")
+          echo "File type: $file_type"
+          if [[ $file_type != *"ELF 64-bit LSB shared object"* ]]; then
+            echo "Error: 下载的文件不是预期的共享库"
+            exit 1
+          fi
+          ldd "$TARGETFILE" || true
+          nm -D "$TARGETFILE" || true
       - name: Build
         env:
           GCC_ENABLE: 1
@@ -63,21 +74,32 @@ jobs:
           msystem: MINGW64
           update: true
           install: mingw-w64-x86_64-gcc mingw-w64-x86_64-gmp mingw-w64-x86_64-mpfr
-      - name: Download libcalc_parse
+      - name: Download and verify libcalc_parse
         env:
           GITHUB_TOKEN: ${{ secrets.LIB_PRIVATE_REPO_ACCESS_TOKEN }}
         shell: bash
         run: |
           LIBFILE="libcalc_parse-windows.dll"
-          TARGETFILE="libcalc_parse.dll"
-          LATEST_RELEASE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
+          TARGETFILE="calc/libcalc_parse.dll"
+          LATEST_RELEASE=$(curl -sSL -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
           DOWNLOAD_URL=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .browser_download_url")
           if [ -z "$DOWNLOAD_URL" ]; then
-            echo "未找到$LIBFILE的下载URL"
+            echo "Error: 未找到 $LIBFILE 的下载 URL"
             exit 1
           fi
-          curl -L -o calc/$TARGETFILE -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
-          file calc/$TARGETFILE
+          echo "Downloading from: $DOWNLOAD_URL"
+          curl -sSL -o "$TARGETFILE" -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
+          if [ ! -f "$TARGETFILE" ]; then
+            echo "Error: 下载失败，文件不存在"
+            exit 1
+          fi
+          file_type=$(file -b "$TARGETFILE")
+          echo "File type: $file_type"
+          if [[ $file_type != *"PE32+ executable (DLL)"* ]]; then
+            echo "Error: 下载的文件不是预期的 DLL"
+            exit 1
+          fi
+          objdump -p "$TARGETFILE" || true
       - name: Build
         shell: msys2 {0}
         env:
@@ -96,19 +118,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.1.7
-      - name: Download libcalc_parse
+      - name: Download and verify libcalc_parse
         env:
           GITHUB_TOKEN: ${{ secrets.LIB_PRIVATE_REPO_ACCESS_TOKEN }}
         run: |
           LIBFILE="libcalc_parse-freebsd.so"
-          TARGETFILE="libcalc_parse.so"
-          LATEST_RELEASE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
+          TARGETFILE="calc/libcalc_parse.so"
+          LATEST_RELEASE=$(curl -sSL -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
           DOWNLOAD_URL=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .browser_download_url")
           if [ -z "$DOWNLOAD_URL" ]; then
-            echo "未找到$LIBFILE的下载URL"
+            echo "Error: 未找到 $LIBFILE 的下载 URL"
             exit 1
           fi
-          curl -L -o calc/$TARGETFILE -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
+          echo "Downloading from: $DOWNLOAD_URL"
+          curl -sSL -o "$TARGETFILE" -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
+          if [ ! -f "$TARGETFILE" ]; then
+            echo "Error: 下载失败，文件不存在"
+            exit 1
+          fi
+          file_type=$(file -b "$TARGETFILE")
+          echo "File type: $file_type"
+          if [[ $file_type != *"ELF 64-bit LSB shared object"* ]]; then
+            echo "Error: 下载的文件不是预期的共享库"
+            exit 1
+          fi
       - name: Build on FreeBSD
         uses: vmactions/freebsd-vm@v1.1.1
         with:
@@ -128,6 +161,8 @@ jobs:
             /usr/local/bin/gcc$GCC_VERSION --version
             go version
             file calc/libcalc_parse.so
+            ldd calc/libcalc_parse.so || true
+            nm -D calc/libcalc_parse.so || true
             GCC_ENABLE=1 go build -v -o capi .
       - name: Upload artifact
         uses: actions/upload-artifact@v4.4.0
