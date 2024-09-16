@@ -29,13 +29,14 @@ jobs:
           LIBFILE="libcalc_parse-debian.so"
           TARGETFILE="calc/libcalc_parse.so"
           LATEST_RELEASE=$(curl -sSL -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
-          DOWNLOAD_URL=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .browser_download_url")
-          if [ -z "$DOWNLOAD_URL" ]; then
-            echo "Error: 未找到 $LIBFILE 的下载 URL"
+          ASSET_ID=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .id")
+          if [ -z "$ASSET_ID" ]; then
+            echo "Error: 未找到 $LIBFILE 的资产 ID"
             exit 1
           fi
-          echo "Downloading from: $DOWNLOAD_URL"
-          curl -sSL -o "$TARGETFILE" -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
+          echo "Downloading asset ID: $ASSET_ID"
+          curl -vLJO -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/octet-stream" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/assets/$ASSET_ID"
+          mv $LIBFILE $TARGETFILE
           if [ ! -f "$TARGETFILE" ]; then
             echo "Error: 下载失败，文件不存在"
             exit 1
@@ -82,13 +83,14 @@ jobs:
           LIBFILE="libcalc_parse-windows.dll"
           TARGETFILE="calc/libcalc_parse.dll"
           LATEST_RELEASE=$(curl -sSL -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
-          DOWNLOAD_URL=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .browser_download_url")
-          if [ -z "$DOWNLOAD_URL" ]; then
-            echo "Error: 未找到 $LIBFILE 的下载 URL"
+          ASSET_ID=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .id")
+          if [ -z "$ASSET_ID" ]; then
+            echo "Error: 未找到 $LIBFILE 的资产 ID"
             exit 1
           fi
-          echo "Downloading from: $DOWNLOAD_URL"
-          curl -sSL -o "$TARGETFILE" -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
+          echo "Downloading asset ID: $ASSET_ID"
+          curl -vLJO -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/octet-stream" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/assets/$ASSET_ID"
+          mv $LIBFILE $TARGETFILE
           if [ ! -f "$TARGETFILE" ]; then
             echo "Error: 下载失败，文件不存在"
             exit 1
@@ -125,13 +127,14 @@ jobs:
           LIBFILE="libcalc_parse-freebsd.so"
           TARGETFILE="calc/libcalc_parse.so"
           LATEST_RELEASE=$(curl -sSL -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/latest")
-          DOWNLOAD_URL=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .browser_download_url")
-          if [ -z "$DOWNLOAD_URL" ]; then
-            echo "Error: 未找到 $LIBFILE 的下载 URL"
+          ASSET_ID=$(echo $LATEST_RELEASE | jq -r ".assets[] | select(.name == \"$LIBFILE\") | .id")
+          if [ -z "$ASSET_ID" ]; then
+            echo "Error: 未找到 $LIBFILE 的资产 ID"
             exit 1
           fi
-          echo "Downloading from: $DOWNLOAD_URL"
-          curl -sSL -o "$TARGETFILE" -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
+          echo "Downloading asset ID: $ASSET_ID"
+          curl -vLJO -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/octet-stream" "https://api.github.com/repos/${{ env.PRIVATE_REPO }}/releases/assets/$ASSET_ID"
+          mv $LIBFILE $TARGETFILE
           if [ ! -f "$TARGETFILE" ]; then
             echo "Error: 下载失败，文件不存在"
             exit 1
