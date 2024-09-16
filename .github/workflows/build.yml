@@ -7,6 +7,7 @@ on:
 
 env:
   PRIVATE_REPO: wisdgod/CalcParse
+  GO_VERSION: '1.23.1'
 
 jobs:
   build-debian:
@@ -14,9 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4.1.7
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v5.0.2
         with:
-          go-version: '1.23.1'
+          go-version: ${{ env.GO_VERSION }}
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -34,9 +35,12 @@ jobs:
             exit 1
           fi
           curl -L -o calc/$TARGETFILE -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
+          file calc/$TARGETFILE
+          ldd calc/$TARGETFILE || true
       - name: Build
         env:
           GCC_ENABLE: 1
+          LD_LIBRARY_PATH: ${{ github.workspace }}/calc:$LD_LIBRARY_PATH
         run: |
           go build -v -o capi .
       - name: Upload artifact
@@ -52,7 +56,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5.0.2
         with:
-          go-version: '1.23.1'
+          go-version: ${{ env.GO_VERSION }}
       - name: Set up MSYS2
         uses: msys2/setup-msys2@v2.24.1
         with:
@@ -73,11 +77,14 @@ jobs:
             exit 1
           fi
           curl -L -o calc/$TARGETFILE -H "Authorization: token $GITHUB_TOKEN" "$DOWNLOAD_URL"
+          file calc/$TARGETFILE
       - name: Build
         shell: msys2 {0}
         env:
           GCC_ENABLE: 1
+          PATH: ${{ github.workspace }}\calc;${{ env.PATH }}
         run: |
+          go version
           go build -v -o capi.exe .
       - name: Upload artifact
         uses: actions/upload-artifact@v4.4.0
@@ -109,14 +116,18 @@ jobs:
           prepare: |
             pkg update
             pkg install -y gmake gmp mpfr lang/gcc wget
-            wget https://dl.google.com/go/go1.23.1.freebsd-amd64.tar.gz && tar -C /usr/local -xzf go1.23.1.freebsd-amd64.tar.gz && rm go1.23.1.freebsd-amd64.tar.gz
+            wget https://dl.google.com/go/go${{ env.GO_VERSION }}.freebsd-amd64.tar.gz
+            tar -C /usr/local -xzf go${{ env.GO_VERSION }}.freebsd-amd64.tar.gz
+            rm go${{ env.GO_VERSION }}.freebsd-amd64.tar.gz
             ln -s /usr/local/go/bin/go /usr/local/bin/go
           run: |
             export PATH=$PATH:/usr/local/go/bin
+            export LD_LIBRARY_PATH=$PWD/calc:$LD_LIBRARY_PATH
             GCC_VERSION=$(ls /usr/local/bin/gcc* | grep -oE '[0-9]+' | sort -rn | head -n1)
             echo "Using GCC version: $GCC_VERSION"
             /usr/local/bin/gcc$GCC_VERSION --version
             go version
+            file calc/libcalc_parse.so
             GCC_ENABLE=1 go build -v -o capi .
       - name: Upload artifact
         uses: actions/upload-artifact@v4.4.0
@@ -141,7 +152,7 @@ jobs:
           draft: false
           prerelease: false
       - name: Upload Release Asset (Debian)
-        uses: actions/upload-release-asset@v1.0.1
+        uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -150,7 +161,7 @@ jobs:
           asset_name: capi-debian
           asset_content_type: application/octet-stream
       - name: Upload Release Asset (Windows)
-        uses: actions/upload-release-asset@v1.0.1
+        uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -159,7 +170,7 @@ jobs:
           asset_name: capi-windows.exe
           asset_content_type: application/octet-stream
       - name: Upload Release Asset (FreeBSD)
-        uses: actions/upload-release-asset@v1.0.1
+        uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
