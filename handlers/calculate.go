@@ -23,18 +23,20 @@ func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 
 	ip := utils.GetRealIP(r)
 
-	result, err := Calculate(expression, ip)
+	result, err := calc.Calculate(expression)
 	response := map[string]interface{}{}
 
 	if err != nil {
-		response["error"] = fmt.Sprintf("计算失败：%v", err)
+		response["error"] = err.Error()
 		db.WriteToDB(ip, expression, "计算失败")
 	} else {
-		response["value"] = result
-		db.WriteToDB(ip, expression, result.(string))
+		resultStr := result.Text('f', -1) // 保留所有位数
+		response["value"] = resultStr
+		db.WriteToDB(ip, expression, resultStr)
 
-		if strings.HasPrefix(expression, "rand(") {
+		if expression[:5] == "rand(" {
 			response["showLeaderboard"] = true
+			db.UpdateLeaderboard(ip, result, expression)
 		} else {
 			response["showLeaderboard"] = false
 		}

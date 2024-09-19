@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -55,6 +56,7 @@
             height: 100vh;
             transition: background-color 0.3s, color 0.3s;
         }
+
         .container {
             background: var(--container-background-color);
             padding: 20px;
@@ -68,10 +70,12 @@
             align-items: center;
             transition: background-color 0.3s;
         }
+
         h1 {
             text-align: center;
             margin-bottom: 20px;
         }
+
         .display {
             width: 100%;
             padding: 20px;
@@ -86,15 +90,18 @@
             box-sizing: border-box;
             color: var(--text-color);
         }
+
         .display::placeholder {
             color: var(--placeholder-color);
         }
+
         .buttons {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 10px;
             margin-bottom: 20px;
         }
+
         button {
             padding: 20px;
             background-color: var(--button-background-color);
@@ -105,31 +112,39 @@
             cursor: pointer;
             transition: background-color 0.3s, color 0.3s;
         }
+
         button:hover {
             background-color: var(--button-hover-background-color);
         }
+
         button:active {
             background-color: var(--button-active-background-color);
         }
+
         button.clear {
             background-color: var(--clear-button-background-color);
         }
+
         button.clear:hover {
             background-color: var(--clear-button-hover-background-color);
         }
+
         button.equal {
             background-color: var(--equal-button-background-color);
             grid-column: span 4;
         }
+
         button.equal:hover {
             background-color: var(--equal-button-hover-background-color);
         }
+
         #result {
             margin-top: 20px;
             font-size: 18px;
             text-align: center;
             display: none;
         }
+
         .error-message {
             background-color: var(--error-background-color);
             color: var(--error-text-color);
@@ -142,6 +157,7 @@
             margin-top: 20px;
             display: none;
         }
+
         .theme-toggle {
             position: absolute;
             top: 20px;
@@ -194,35 +210,8 @@
             display.value = `${func}(${currentValue})`;
         }
 
-        // function validateExpression(expression) {
-        //     try {
-        //         // Check for balanced parentheses
-        //         let stack = [];
-        //         for (let char of expression) {
-        //             if (char === '(') {
-        //                 stack.push(char);
-        //             } else if (char === ')') {
-        //                 if (stack.length === 0) {
-        //                     return false;
-        //                 }
-        //                 stack.pop();
-        //             }
-        //         }
-        //         return stack.length === 0;
-        //     } catch (e) {
-        //         return false;
-        //     }
-        // }
-
         async function calculate() {
             const expression = document.getElementById("expression").value;
-
-            // if (!validateExpression(expression)) {
-            //     document.getElementById("error").innerText = "Invalid expression. Please check your input.";
-            //     document.getElementById("error").style.display = 'block';
-            //     document.getElementById("result").style.display = 'none';
-            //     return;
-            // }
 
             const response = await fetch("/", {
                 method: "POST",
@@ -232,20 +221,20 @@
                 body: `expression=${encodeURIComponent(expression)}`
             });
             const result = await response.json();
-            if (response.ok) {
-                document.getElementById("result").innerText = `Result | 结果: ${result.value}`;
-                document.getElementById("result").style.display = 'block';
-                document.getElementById("error").style.display = 'none';
-                if (result.showLeaderboard) {
-                    createLeaderboardButton();
-                }
-            } else {
+            if (result.error) {
                 document.getElementById("error").innerText = result.error;
                 document.getElementById("error").style.display = 'block';
                 document.getElementById("result").style.display = 'none';
                 const leaderboardBtn = document.getElementById("leaderboard-btn");
                 if (leaderboardBtn) {
                     leaderboardBtn.remove();
+                }
+            } else {
+                document.getElementById("result").innerText = `Result | 结果: ${result.value}`;
+                document.getElementById("result").style.display = 'block';
+                document.getElementById("error").style.display = 'none';
+                if (result.showLeaderboard) {
+                    createLeaderboardButton();
                 }
             }
         }
@@ -283,6 +272,7 @@
         }
     </script>
 </head>
+
 <body>
     <div class="container">
         <h1>Calculator | 计算器</h1>
@@ -320,4 +310,5 @@
     </div>
     <button id="theme-toggle" class="theme-toggle">Toggle Theme | 切换主题</button>
 </body>
+
 </html>
