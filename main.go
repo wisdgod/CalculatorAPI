@@ -26,30 +26,31 @@ var (
 )
 
 func init() {
-	flag.StringVar(&port, "port", "12345", "Port to run the server on")
-	flag.StringVar(&dbDir, "dbDir", ".", "Directory for the SQLite database")
-	flag.StringVar(&logDir, "logDir", "./logs", "Directory for log files")
+	// 定义命令行标志
+	flag.StringVar(&port, "port", "12345", "运行服务器的端口")
+	flag.StringVar(&dbDir, "dbDir", ".", "SQLite数据库的目录")
+	flag.StringVar(&logDir, "logDir", "./logs", "日志文件的目录")
 }
 
 func main() {
 	flag.Parse()
 
-	// Initialize logging
+	// 初始化日志
 	if err := os.MkdirAll(logDir, 0755); err != nil {
-		log.Fatalf("Failed to create log directory: %v", err)
+		log.Fatalf("创建日志目录失败: %v", err)
 	}
 	logFile := filepath.Join(logDir, time.Now().Format("20060102_1504")+".log")
 	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatalf("Failed to open log file: %v", err)
+		log.Fatalf("打开日志文件失败: %v", err)
 	}
 	defer f.Close()
 
-	// Create a multi-writer to write to both file and console
+	// 创建一个多写入器，写入文件和控制台
 	multiWriter := io.MultiWriter(os.Stdout, f)
 	log.SetOutput(multiWriter)
 
-	// Initialize database
+	// 初始化数据库
 	dbPath := filepath.Join(dbDir, "calculator.db")
 	db.DB, err = db.InitDB(dbPath)
 	if err != nil {
@@ -59,12 +60,12 @@ func main() {
 
 	db.CreateTables()
 
-	// Setup router
+	// 设置路由器
 	router := mux.NewRouter()
 	router.Use(middleware.LogRequestMiddleware)
 	handlers.SetupRoutes(router)
 
-	// Start server with graceful shutdown
+	// 启动服务器并实现优雅关闭
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: router,
@@ -76,18 +77,18 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal to gracefully shut down the server
+	// 等待中断信号以优雅关闭服务器
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	log.Println("正在关闭服务器...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		log.Fatalf("服务器强制关闭: %v", err)
 	}
 
-	log.Println("Server exiting")
+	log.Println("服务器已退出")
 }
