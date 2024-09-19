@@ -16,6 +16,11 @@ func CalculateHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	expression := r.Form.Get("expression")
+	if expression == "" {
+		http.Error(w, `{"error": "Expression cannot be empty"}`, http.StatusBadRequest)
+		return
+	}
+
 	ip := utils.GetRealIP(r)
 
 	result, err := Calculate(expression, ip)
@@ -49,5 +54,10 @@ func Calculate(expression string, ip string) (interface{}, error) {
 		db.UpdateLeaderboard(ip, result, expression)
 	}
 
-	return result.Text('f', 10), nil
+	// 将结果转换为字符串并去除尾部多余的零
+	resultStr := result.Text('f', 999999)
+	resultStr = strings.TrimRight(resultStr, "0")
+	resultStr = strings.TrimSuffix(resultStr, ".")
+
+	return resultStr, nil
 }
