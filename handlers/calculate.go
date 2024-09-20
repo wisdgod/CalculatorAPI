@@ -13,37 +13,44 @@ import (
 )
 
 func CalculateHandler(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	switch r.Method {
+	case http.MethodGet:
+		http.Redirect(w, r, "/help", http.StatusSeeOther)
+	case http.MethodPost:
+		r.ParseForm()
 
-	expression := r.Form.Get("expression")
-	if expression == "" {
-		http.Error(w, `{"error": "Expression cannot be empty"}`, http.StatusBadRequest)
-		return
-	}
-
-	ip := utils.GetRealIP(r)
-
-	result, err := calc.Calculate(expression)
-	response := map[string]interface{}{}
-
-	if err != nil {
-		response["error"] = err.Error()
-		db.WriteToDB(ip, expression, "计算失败")
-	} else {
-		resultStr := result.Text('f', -1) // 保留所有位数
-		response["value"] = resultStr
-		db.WriteToDB(ip, expression, resultStr)
-
-		if expression[:5] == "rand(" {
-			response["showLeaderboard"] = true
-			db.UpdateLeaderboard(ip, result, expression)
-		} else {
-			response["showLeaderboard"] = false
+		expression := r.Form.Get("expression")
+		if expression == "" {
+			http.Error(w, `{"error": "Expression cannot be empty"}`, http.StatusBadRequest)
+			return
 		}
-	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+		ip := utils.GetRealIP(r)
+
+		result, err := calc.Calculate(expression)
+		response := map[string]interface{}{}
+
+		if err != nil {
+			response["error"] = err.Error()
+			db.WriteToDB(ip, expression, "计算失败")
+		} else {
+			resultStr := result.Text('f', -1) // 保留所有位数
+			response["value"] = resultStr
+			db.WriteToDB(ip, expression, resultStr)
+
+			if len(expression) >= 5 && expression[:5] == "rand(" {
+				response["showLeaderboard"] = true
+				db.UpdateLeaderboard(ip, result, expression)
+			} else {
+				response["showLeaderboard"] = false
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	default:
+		http.Error(w, `{"error": "Method not allowed"}`, http.StatusMethodNotAllowed)
+	}
 }
 
 func Calculate(expression string, ip string) (interface{}, error) {

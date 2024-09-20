@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculator Expression Guide</title>
+  <style>
+    :root {
+      --bg-color: #e8eaed;
+      --text-color: #333333;
+      --header-bg-color: rgba(51,51,51);
+      --header-text-color: #e8eaed;
+      --container-bg-color: #f9f9f9;
+      --container-text-color: #333333;
+      --button-bg-color: #4CAF50;
+      --button-text-color: #e8eaed;
+      --code-bg-color: #f4f4f4;
+      --pre-bg-color: #f4f4f4;
+      --warning-color: red;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #333333;
+      --text-color: #e8eaed;
+      --header-bg-color: rgba(204,204,204);
+      --header-text-color: #333333;
+      --container-bg-color: #444444;
+      --container-text-color: #e8eaed;
+      --button-bg-color: #4CAF50;
+      --button-text-color: #e8eaed;
+      --code-bg-color: #555555;
+      --pre-bg-color: #555555;
+      --warning-color: #ff6666;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: var(--header-bg-color);
+      color: var(--header-text-color);
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: var(--container-bg-color);
+      color: var(--container-text-color);
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    h1, h2, h3 {
+      color: var(--text-color);
+    }
+    code {
+      background-color: var(--code-bg-color);
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    pre {
+      background-color: var(--pre-bg-color);
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    .warning {
+      color: var(--warning-color);
+      font-weight: bold;
+    }
+    .button {
+      background-color: var(--button-bg-color);
+      border: none;
+      color: var(--button-text-color);
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 12px;
+    }
+    a.button {
+      color: var(--button-text-color);
+      text-decoration: none;
+    }
+    a.button:visited {
+      color: var(--button-text-color);
+    }
+    .theme-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body data-theme="light">
+  <header>
+    <div>Calculator Expression Guide</div>
+    <div>
+      <button class="theme-toggle" onclick="toggleTheme()">
+        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="yellow" id="theme-icon">
+          <path d="M480-360q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35Zm0 80q-83 0-141.5-58.5T280-480q0-83 58.5-141.5T480-680q83 0 141.5 58.5T680-480q0 83-58.5 141.5T480-280ZM200-440H40v-80h160v80Zm720 0H760v-80h160v80ZM440-760v-160h80v160h-80Zm0 720v-160h80v160h-80ZM256-650l-101-97 57-59 96 100-52 56Zm492 496-97-101 53-55 101 97-57 59Zm-98-550 97-101 59 57-100 96-56-52ZM154-212l101-97 55 53-97 101-59-57Zm326-268Z"/>
+        </svg>
+      </button>
+      <a href="/calculator" class="button">Go to Calculator</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <h1>Calculator Expression Guide</h1>
+    <p class="warning">1. This document is AI-generated and may contain inaccuracies.</p>
+    <p class="warning">2. Custom functions and non-decimal bases have not been tested and are not guaranteed to work.</p>
+
+    <h2>Basic Arithmetic Operations</h2>
+    <p>The calculator supports standard arithmetic operations:</p>
+    <ul>
+      <li>Addition: <code>+</code></li>
+      <li>Subtraction: <code>-</code></li>
+      <li>Multiplication: <code>*</code></li>
+      <li>Division: <code>/</code></li>
+      <li>Modulo: <code>%</code></li>
+      <li>Exponentiation: <code>^</code></li>
+    </ul>
+    <p>Example: <code>2 + 3 * 4 - 5 / 2</code></p>
+
+    <h2>Numbers</h2>
+    <p>The calculator supports various number formats:</p>
+    <ul>
+      <li>Decimal: <code>3.14</code></li>
+      <li>Integer: <code>42</code></li>
+      <li>Scientific notation: <code>6.022e23</code></li>
+      <li>Binary (base 2): Prefix with <code>0b</code></li>
+      <li>Octal (base 8): Prefix with <code>0</code></li>
+      <li>Hexadecimal (base 16): Prefix with <code>0x</code> or <code>0X</code></li>
+    </ul>
+    <p>Example: <code>0b1010</code> (equals 10 in decimal), <code>012</code> (equals 10 in decimal), <code>0xA</code> or <code>0XA</code> (equals 10 in decimal)</p>
+
+    <h2>Mathematical Constants</h2>
+    <p>Built-in mathematical constants:</p>
+    <ul>
+      <li>Pi: <code>pi</code></li>
+      <li>Euler's number: <code>e</code></li>
+    </ul>
+    <p>Example: <code>pi * r^2</code></p>
+
+    <h2>Functions</h2>
+    <p>The calculator includes many built-in mathematical functions:</p>
+    <ul>
+      <li>Trigonometric: <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>asin()</code>, <code>acos()</code>, <code>atan()</code></li>
+      <li>Logarithmic: <code>log()</code> (base 10), <code>ln()</code> (natural log)</li>
+      <li>Exponential: <code>exp()</code></li>
+      <li>Square root: <code>sqrt()</code></li>
+      <li>Absolute value: <code>abs()</code></li>
+      <li>Rounding: <code>floor()</code>, <code>ceil()</code>, <code>round()</code></li>
+    </ul>
+    <p>Example: <code>sqrt(16) + log(10)</code>, <code>sin(pi/2)</code></p>
+
+    <h2>Variables and Assignments</h2>
+    <p>You can define and use variables in expressions:</p>
+    <ul>
+      <li>Assignment: Use <code>=</code></li>
+      <li>Variable names can contain letters, numbers, and underscores, but must start with a letter or underscore</li>
+    </ul>
+    <p>Example: <code>x = 5; y = x + 3; y * 2</code></p>
+
+    <h2>Complex Expressions</h2>
+    <p>You can combine various operations and functions to create complex expressions:</p>
+    <p>Example: <code>2 * sin(x) + sqrt(y^2 - 4*z)</code></p>
+
+    <h2>Parentheses</h2>
+    <p>Use parentheses to group parts of expressions and control the order of operations:</p>
+    <p>Example: <code>(2 + 3) * 4</code></p>
+
+    <h2>Comparisons and Logic</h2>
+    <p>The calculator supports comparison and logical operations:</p>
+    <ul>
+      <li>Equality: <code>==</code></li>
+      <li>Inequality: <code>!=</code></li>
+      <li>Greater than: <code>></code></li>
+      <li>Less than: <code><</code></li>
+      <li>Greater than or equal to: <code>>=</code></li>
+      <li>Less than or equal to: <code><=</code></li>
+      <li>AND: <code>&&</code></li>
+      <li>OR: <code>||</code></li>
+      <li>NOT: <code>!</code></li>
+    </ul>
+    <p>Example: <code>x > 0 && y < 10</code></p>
+
+    <h2>Conditional Statements</h2>
+    <p>You can use if-else statements for conditional logic:</p>
+    <pre><code>if (x > 0) {
+  y = sqrt(x)
+} else {
+  y = 0
+}</code></pre>
+
+    <h2>Function Definitions</h2>
+    <p>You can define custom functions:</p>
+    <pre><code>def function_name(param1, param2, ...) {
+  // function body
+  return expression
+}</code></pre>
+    <p>Example:</p>
+    <pre><code>def square(x) {
+  return x * x
+}</code></pre>
+    <p>Example of a recursive function:</p>
+    <pre><code>def factorial(n) {
+  if (n <= 1) {
+    return 1
+  } else {
+    return n * factorial(n-1)
+  }
+}
+factorial(5)</code></pre>
+
+    <h2>Comments</h2>
+    <p>The calculator supports two types of comments:</p>
+    <ul>
+      <li>Single-line comment: <code>0* This is a comment *0</code></li>
+      <li>Multi-line comment: 
+        <pre><code>0* 
+This is a 
+multi-line comment 
+*0</code></pre>
+      </li>
+    </ul>
+
+    <h2>Precision</h2>
+    <p>The calculator supports high precision calculations up to 100,000 digits.</p>
+
+    <h2>Order of Operations</h2>
+    <p>The calculator follows standard mathematical order of operations (PEMDAS):</p>
+    <ol>
+      <li>Parentheses</li>
+      <li>Exponents</li>
+      <li>Multiplication and Division (left-to-right)</li>
+      <li>Addition and Subtraction (left-to-right)</li>
+    </ol>
+
+    <h2>Error Handling</h2>
+    <p>The calculator will return an error message for invalid expressions, such as:</p>
+    <ul>
+      <li>Division by zero</li>
+      <li>Invalid function calls</li>
+      <li>Syntax errors</li>
+      <li>Undefined variables or functions</li>
+    </ul>
+
+    <h2>Examples</h2>
+    <ol>
+      <li>Complex arithmetic: <code>(3 + 4) * (5 - 2) ^ 2 / 4</code></li>
+      <li>Using constants and functions: <code>pi * sqrt(25) + log(e^3)</code></li>
+      <li>Variable assignment and use: <code>x = 10; y = x^2; z = sqrt(y); z + 5</code></li>
+      <li>Custom function definition and use:</li>
+      <pre><code>def factorial(n) {
+  if (n <= 1) {
+    return 1
+  } else {
+    return n * factorial(n-1)
+  }
+}
+factorial(5)</code></pre>
+      <li>Using different base numbers: <code>0b1010 + 0xA + 012</code></li>
+    </ol>
+    <p>Remember that expressions are evaluated from left to right, and you can use parentheses to group operations and override the default order of operations.</p>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const body = document.body;
+      const currentTheme = body.getAttribute('data-theme');
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      body.setAttribute('data-theme', newTheme);
+
+      const themeIcon = document.getElementById('theme-icon');
+      if (newTheme === 'dark') {
+        themeIcon.innerHTML = '<path d="M480-120q-150 0-255-105T120-480q0-150 105-255t255-105q14 0 27.5 1t26.5 3q-41 29-65.5 75.5T444-660q0 90 63 153t153 63q55 0 101-24.5t75-65.5q2 13 3 26.5t1 27.5q0 150-105 255T480-120Zm0-80q88 0 158-48.5T740-375q-20 5-40 8t-40 3q-123 0-209.5-86.5T364-660q0-20 3-40t8-40q-78 32-126.5 102T200-480q0 116 82 198t198 82Zm-10-270Z"/>';
+      } else {
+        themeIcon.innerHTML = '<path d="M480-360q50 0 85-35t35-85q0-50-35-85t-85-35q-50 0-85 35t-35 85q0 50 35 85t85 35Zm0 80q-83 0-141.5-58.5T280-480q0-83 58.5-141.5T480-680q83 0 141.5 58.5T680-480q0 83-58.5 141.5T480-280ZM200-440H40v-80h160v80Zm720 0H760v-80h160v80ZM440-760v-160h80v160h-80Zm0 720v-160h80v160h-80ZM256-650l-101-97 57-59 96 100-52 56Zm492 496-97-101 53-55 101 97-57 59Zm-98-550 97-101 59 57-100 96-56-52ZM154-212l101-97 55 53-97 101-59-57Zm326-268Z"/>';
+      }
+    }
+
+    window.onload = () => {
+      const prefersDarkScheme = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.body.setAttribute('data-theme', prefersDarkScheme ? 'dark' : 'light');
+    };
+  </script>
+</body>
+</html>
