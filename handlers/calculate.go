@@ -64,7 +64,7 @@ func Calculate(expression string, ip string) (interface{}, error) {
 	}
 
 	// 将结果转换为字符串并去除尾部多余的零
-	resultStr := result.Text('f', 999999)
+	resultStr := result.Text('f', 99999)
 	resultStr = strings.TrimRight(resultStr, "0")
 	resultStr = strings.TrimSuffix(resultStr, ".")
 

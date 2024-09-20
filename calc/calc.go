@@ -64,7 +64,7 @@ func Calculate(expr string) (*big.Float, error) {
 
 	// 将结果字符串解析为 big.Float
 	f := new(big.Float)
-	_, _, err := f.Parse(result, 10)
+	_, _, err := f.Parse(result, 99999)
 	if err != nil {
 		return nil, fmt.Errorf("解析结果失败: %v", err)
 	}
